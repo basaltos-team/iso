@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+echo "TODO: boot ISO in UEFI VM"
+

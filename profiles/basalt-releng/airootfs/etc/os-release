@@ -1,0 +1,5 @@
+NAME="BasaltOS Live"
+ID=basalt
+ID_LIKE=arch
+PRETTY_NAME="BasaltOS Live"
+
