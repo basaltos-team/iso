@@ -1,4 +1,4 @@
-# basalt-iso
+# iso
 
 archiso, installer, and recovery environment repository.
 
@@ -14,7 +14,7 @@ archiso, installer, and recovery environment repository.
 ## Planned Layout
 
 ```text
-basalt-iso/
+iso/
 |-- profiles/
 |   `-- basalt-releng/
 |       `-- airootfs/
@@ -25,8 +25,8 @@ basalt-iso/
 
 ## Contracts
 
-- Consumes repo channel metadata from `basalt-repo/`.
+- Consumes repo channel metadata from `repo-manifests/`.
 - Consumes installer logic/artifacts from `basalt/`.
-- Consumes example profiles from `basalt-configs/`.
-- Emits ISO artifacts consumed by `basalt-tests/` and release manifests.
+- Consumes example profiles from `configs/`.
+- Emits ISO artifacts consumed by `tests/` and release manifests.
 
