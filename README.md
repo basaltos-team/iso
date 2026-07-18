@@ -32,7 +32,7 @@ iso/
 
 ## Validation
 
-Run syntax and profile-shape checks before ISO build behavior exists:
+Run syntax, profile-shape, and build-wrapper checks:
 
 ```sh
 bash -n profiles/basalt-releng/profiledef.sh
@@ -40,8 +40,21 @@ sh -n profiles/basalt-releng/airootfs/usr/local/bin/basalt-install
 find scripts -type f ! -name '.gitkeep' -exec sh -n {} +
 find tests -type f -name '*.sh' -exec sh -n {} +
 ./tests/installer-starts.sh
+./tests/iso-build-artifact.sh
 test -f profiles/basalt-releng/packages.x86_64
 test -f profiles/basalt-releng/pacman.conf
 test -f profiles/basalt-releng/profiledef.sh
 test -f profiles/basalt-releng/airootfs/etc/os-release
+```
+
+Build the ISO on an Arch builder with `archiso` installed:
+
+```sh
+./scripts/build-iso
+```
+
+Run the artifact smoke against a real build:
+
+```sh
+BASALT_ISO_BUILD_SMOKE=1 ./tests/iso-build-artifact.sh
 ```

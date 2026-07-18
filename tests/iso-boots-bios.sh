@@ -1,3 +1,12 @@
 #!/usr/bin/env sh
-echo "TODO: assert ISO boots in BIOS mode"
+set -eu
 
+ISO_PATH="${BASALT_ISO_PATH:-}"
+
+[ -n "$ISO_PATH" ] || {
+  printf 'iso-boots-bios: skipped; set BASALT_ISO_PATH=/path/to/basaltos.iso\n'
+  exit 0
+}
+
+test -s "$ISO_PATH"
+printf 'iso-boots-bios: pending VM boot assertion for %s\n' "$ISO_PATH"

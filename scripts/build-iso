@@ -1,3 +1,79 @@
 #!/usr/bin/env sh
-echo "TODO: build BasaltOS ISO"
+set -eu
 
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+PROFILE="${BASALT_ISO_PROFILE:-$REPO_ROOT/profiles/basalt-releng}"
+OUT_DIR="${BASALT_ISO_OUT:-$REPO_ROOT/out}"
+WORK_DIR="${BASALT_ISO_WORK:-$REPO_ROOT/work}"
+DRY_RUN=0
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/build-iso [--dry-run]
+
+Build the BasaltOS archiso profile.
+
+Environment:
+  BASALT_ISO_PROFILE  Profile directory. Default: profiles/basalt-releng.
+  BASALT_ISO_OUT      Output directory. Default: out.
+  BASALT_ISO_WORK     Work directory. Default: work.
+EOF
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'FAIL: unknown argument: %s\n' "$1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+[ -f "$PROFILE/profiledef.sh" ] || {
+  printf 'FAIL: archiso profile not found: %s\n' "$PROFILE" >&2
+  exit 1
+}
+
+printf 'BasaltOS ISO build plan\n'
+printf 'Profile: %s\n' "$PROFILE"
+printf 'Output:  %s\n' "$OUT_DIR"
+printf 'Work:    %s\n' "$WORK_DIR"
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  printf 'Mode:    dry-run\n'
+  exit 0
+fi
+
+command -v mkarchiso >/dev/null 2>&1 || {
+  printf 'FAIL: mkarchiso is not available. Run this on an Arch builder with archiso installed.\n' >&2
+  exit 1
+}
+
+mkdir -p "$OUT_DIR" "$WORK_DIR"
+mkarchiso -v -w "$WORK_DIR" -o "$OUT_DIR" "$PROFILE"
+
+ISO_PATH="$(find "$OUT_DIR" -maxdepth 1 -type f -name '*.iso' | sort | tail -n 1)"
+[ -n "$ISO_PATH" ] || {
+  printf 'FAIL: mkarchiso completed but no ISO was found in %s\n' "$OUT_DIR" >&2
+  exit 1
+}
+
+sha256sum "$ISO_PATH" > "$ISO_PATH.sha256"
+cat > "$ISO_PATH.manifest" <<EOF
+iso=$ISO_PATH
+sha256=$ISO_PATH.sha256
+profile=$PROFILE
+EOF
+
+printf 'ISO:     %s\n' "$ISO_PATH"
+printf 'SHA256:  %s.sha256\n' "$ISO_PATH"
+printf 'Manifest:%s.manifest\n' "$ISO_PATH"

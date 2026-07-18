@@ -23,3 +23,7 @@ jobs:
           test -f profiles/basalt-releng/pacman.conf
           test -f profiles/basalt-releng/profiledef.sh
           test -f profiles/basalt-releng/airootfs/etc/os-release
+      - name: Check ISO build wrapper
+        run: |
+          set -eu
+          ./tests/iso-build-artifact.sh
