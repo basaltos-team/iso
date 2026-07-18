@@ -30,3 +30,16 @@ iso/
 - Consumes example profiles from `configs/`.
 - Emits ISO artifacts consumed by `tests/` and release manifests.
 
+## Validation
+
+Run syntax and profile-shape checks before ISO build behavior exists:
+
+```sh
+bash -n profiles/basalt-releng/profiledef.sh
+find scripts -type f ! -name '.gitkeep' -exec sh -n {} +
+find tests -type f -name '*.sh' -exec sh -n {} +
+test -f profiles/basalt-releng/packages.x86_64
+test -f profiles/basalt-releng/pacman.conf
+test -f profiles/basalt-releng/profiledef.sh
+test -f profiles/basalt-releng/airootfs/etc/os-release
+```
