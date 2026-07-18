@@ -5,6 +5,9 @@ DISK=""
 HOSTNAME="basalt"
 TARGET="/mnt"
 REPO_SERVER=""
+LOCALE="en_US.UTF-8"
+KEYMAP="us"
+TIMEZONE="UTC"
 DRY_RUN=0
 YES=0
 
@@ -17,6 +20,9 @@ Options:
   --hostname NAME   Installed hostname. Default: basalt.
   --target PATH     Mounted install root. Default: /mnt.
   --repo URL        Optional pacman repo server, for example file:///tmp/basalt-local-repo.
+  --locale LOCALE   Installed locale. Default: en_US.UTF-8.
+  --keymap KEYMAP   Installed console keymap. Default: us.
+  --timezone ZONE   Installed timezone. Default: UTC.
   --dry-run         Print the install plan without changing disks.
   --yes             Execute the install plan after WIPE confirmation.
   --help            Show this help.
@@ -71,6 +77,21 @@ while [ "$#" -gt 0 ]; do
       REPO_SERVER="$2"
       shift 2
       ;;
+    --locale)
+      [ "$#" -ge 2 ] || fail "--locale requires a value"
+      LOCALE="$2"
+      shift 2
+      ;;
+    --keymap)
+      [ "$#" -ge 2 ] || fail "--keymap requires a value"
+      KEYMAP="$2"
+      shift 2
+      ;;
+    --timezone)
+      [ "$#" -ge 2 ] || fail "--timezone requires a value"
+      TIMEZONE="$2"
+      shift 2
+      ;;
     --dry-run)
       DRY_RUN=1
       shift
@@ -92,6 +113,9 @@ done
 [ -n "$DISK" ] || fail "--disk is required"
 [ -n "$HOSTNAME" ] || fail "--hostname cannot be empty"
 [ -n "$TARGET" ] || fail "--target cannot be empty"
+[ -n "$LOCALE" ] || fail "--locale cannot be empty"
+[ -n "$KEYMAP" ] || fail "--keymap cannot be empty"
+[ -n "$TIMEZONE" ] || fail "--timezone cannot be empty"
 
 EFI_PART="$(partition_path "$DISK" 1)"
 ROOT_PART="$(partition_path "$DISK" 2)"
@@ -103,6 +127,9 @@ printf 'EFI:        %s\n' "$EFI_PART"
 printf 'Root:       %s\n' "$ROOT_PART"
 printf 'Target:     %s\n' "$TARGET"
 printf 'Hostname:   %s\n' "$HOSTNAME"
+printf 'Locale:     %s\n' "$LOCALE"
+printf 'Keymap:     %s\n' "$KEYMAP"
+printf 'Timezone:   %s\n' "$TIMEZONE"
 if [ -n "$REPO_SERVER" ]; then
   printf 'Repo:       %s\n' "$REPO_SERVER"
 else
@@ -147,6 +174,9 @@ run mkdir -p "$TARGET"
 run mount "$ROOT_PART" "$TARGET"
 run mkdir -p "$TARGET/boot"
 run mount "$EFI_PART" "$TARGET/boot"
+run mkdir -p "$TARGET/etc"
+printf 'LANG=%s\n' "$LOCALE" > "$TARGET/etc/locale.conf"
+printf 'KEYMAP=%s\n' "$KEYMAP" > "$TARGET/etc/vconsole.conf"
 
 if [ -n "$REPO_SERVER" ]; then
   cp /etc/pacman.conf "$PACMAN_CONF"
@@ -158,6 +188,6 @@ fi
 
 genfstab -U "$TARGET" >> "$TARGET/etc/fstab"
 printf '%s\n' "$HOSTNAME" > "$TARGET/etc/hostname"
-run arch-chroot "$TARGET" ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+run arch-chroot "$TARGET" ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
 
 printf 'BasaltOS install complete at %s\n' "$TARGET"

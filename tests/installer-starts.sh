@@ -7,6 +7,7 @@ INSTALLER="$SCRIPT_DIR/../profiles/basalt-releng/airootfs/usr/local/bin/basalt-i
 "$INSTALLER" --help >/dev/null
 "$INSTALLER" --disk /dev/vda --hostname basalt-test --repo file:///tmp/basalt-local-repo --dry-run | grep -q 'BasaltOS install plan'
 "$INSTALLER" --disk /dev/nvme0n1 --dry-run | grep -q 'EFI:        /dev/nvme0n1p1'
+"$INSTALLER" --disk /dev/vda --locale C.UTF-8 --keymap us --timezone UTC --dry-run | grep -q 'Locale:     C.UTF-8'
 
 if "$INSTALLER" --disk /dev/vda >/tmp/basalt-installer-starts.out 2>&1; then
   printf 'FAIL: installer allowed destructive path without --yes\n' >&2
