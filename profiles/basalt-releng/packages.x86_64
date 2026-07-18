@@ -4,6 +4,7 @@ bash
 dosfstools
 dracut
 gptfdisk
+grub
 linux
 linux-firmware
 pacman

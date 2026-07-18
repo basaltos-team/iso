@@ -117,12 +117,14 @@ done
 [ -n "$KEYMAP" ] || fail "--keymap cannot be empty"
 [ -n "$TIMEZONE" ] || fail "--timezone cannot be empty"
 
-EFI_PART="$(partition_path "$DISK" 1)"
-ROOT_PART="$(partition_path "$DISK" 2)"
+BIOS_PART="$(partition_path "$DISK" 1)"
+EFI_PART="$(partition_path "$DISK" 2)"
+ROOT_PART="$(partition_path "$DISK" 3)"
 PACMAN_CONF="/tmp/basalt-install-pacman.conf"
 
 printf 'BasaltOS install plan\n'
 printf 'Disk:       %s\n' "$DISK"
+printf 'BIOS boot:  %s\n' "$BIOS_PART"
 printf 'EFI:        %s\n' "$EFI_PART"
 printf 'Root:       %s\n' "$ROOT_PART"
 printf 'Target:     %s\n' "$TARGET"
@@ -135,7 +137,7 @@ if [ -n "$REPO_SERVER" ]; then
 else
   printf 'Repo:       system pacman configuration\n'
 fi
-printf 'Packages:   basalt-base linux linux-firmware dracut\n'
+printf 'Packages:   basalt-base linux linux-firmware dracut grub\n'
 
 if [ "$DRY_RUN" -eq 1 ]; then
   printf 'Mode:       dry-run\n'
@@ -165,8 +167,9 @@ printf '+ umount -R %s\n' "$TARGET"
 umount -R "$TARGET" 2>/dev/null || true
 run wipefs -af "$DISK"
 run sgdisk --zap-all "$DISK"
-run sgdisk -n 1:1MiB:+512MiB -t 1:ef00 -c 1:EFI "$DISK"
-run sgdisk -n 2:0:0 -t 2:8300 -c 2:ROOT "$DISK"
+run sgdisk -n 1:1MiB:+2MiB -t 1:ef02 -c 1:BIOS "$DISK"
+run sgdisk -n 2:3MiB:+512MiB -t 2:ef00 -c 2:EFI "$DISK"
+run sgdisk -n 3:0:0 -t 3:8300 -c 3:ROOT "$DISK"
 run partprobe "$DISK"
 run mkfs.fat -F32 "$EFI_PART"
 run mkfs.ext4 -F "$ROOT_PART"
@@ -181,13 +184,23 @@ printf 'KEYMAP=%s\n' "$KEYMAP" > "$TARGET/etc/vconsole.conf"
 if [ -n "$REPO_SERVER" ]; then
   cp /etc/pacman.conf "$PACMAN_CONF"
   printf '\n[basalt]\nSigLevel = Optional TrustAll\nServer = %s\n' "$REPO_SERVER" >> "$PACMAN_CONF"
-  run pacstrap -K -C "$PACMAN_CONF" "$TARGET" basalt-base linux linux-firmware dracut
+  run pacstrap -K -C "$PACMAN_CONF" "$TARGET" basalt-base linux linux-firmware dracut grub
 else
-  run pacstrap -K "$TARGET" basalt-base linux linux-firmware dracut
+  run pacstrap -K "$TARGET" basalt-base linux linux-firmware dracut grub
 fi
 
 genfstab -U "$TARGET" >> "$TARGET/etc/fstab"
 printf '%s\n' "$HOSTNAME" > "$TARGET/etc/hostname"
+cat > "$TARGET/etc/default/grub" <<'EOF'
+GRUB_DISTRIBUTOR="BasaltOS"
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_CMDLINE_LINUX_DEFAULT="quiet"
+GRUB_CMDLINE_LINUX=""
+EOF
 run arch-chroot "$TARGET" ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
+run arch-chroot "$TARGET" grub-install --target=i386-pc "$DISK"
+run arch-chroot "$TARGET" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=BasaltOS --removable
+run arch-chroot "$TARGET" grub-mkconfig -o /boot/grub/grub.cfg
 
 printf 'BasaltOS install complete at %s\n' "$TARGET"
