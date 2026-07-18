@@ -1,0 +1,25 @@
+name: smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  iso-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: |
+          set -eu
+          bash -n profiles/basalt-releng/profiledef.sh
+          find scripts -type f ! -name '.gitkeep' -exec sh -n {} +
+          find tests -type f -name '*.sh' -exec sh -n {} +
+      - name: Check archiso profile shape
+        run: |
+          set -eu
+          test -f profiles/basalt-releng/packages.x86_64
+          test -f profiles/basalt-releng/pacman.conf
+          test -f profiles/basalt-releng/profiledef.sh
+          test -f profiles/basalt-releng/airootfs/etc/os-release
