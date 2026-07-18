@@ -7,6 +7,7 @@ gptfdisk
 grub
 linux
 linux-firmware
+openssh
 pacman
 parted
 util-linux

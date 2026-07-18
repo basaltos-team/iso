@@ -8,6 +8,8 @@ REPO_SERVER=""
 LOCALE="en_US.UTF-8"
 KEYMAP="us"
 TIMEZONE="UTC"
+USERNAME="omega24"
+PASSWORD="basalt"
 DRY_RUN=0
 YES=0
 
@@ -23,6 +25,8 @@ Options:
   --locale LOCALE   Installed locale. Default: en_US.UTF-8.
   --keymap KEYMAP   Installed console keymap. Default: us.
   --timezone ZONE   Installed timezone. Default: UTC.
+  --user NAME       Installed test user. Default: omega24.
+  --password TEXT   Initial test user password. Default: basalt.
   --dry-run         Print the install plan without changing disks.
   --yes             Execute the install plan after WIPE confirmation.
   --help            Show this help.
@@ -92,6 +96,16 @@ while [ "$#" -gt 0 ]; do
       TIMEZONE="$2"
       shift 2
       ;;
+    --user)
+      [ "$#" -ge 2 ] || fail "--user requires a value"
+      USERNAME="$2"
+      shift 2
+      ;;
+    --password)
+      [ "$#" -ge 2 ] || fail "--password requires a value"
+      PASSWORD="$2"
+      shift 2
+      ;;
     --dry-run)
       DRY_RUN=1
       shift
@@ -116,6 +130,8 @@ done
 [ -n "$LOCALE" ] || fail "--locale cannot be empty"
 [ -n "$KEYMAP" ] || fail "--keymap cannot be empty"
 [ -n "$TIMEZONE" ] || fail "--timezone cannot be empty"
+[ -n "$USERNAME" ] || fail "--user cannot be empty"
+[ -n "$PASSWORD" ] || fail "--password cannot be empty"
 
 BIOS_PART="$(partition_path "$DISK" 1)"
 EFI_PART="$(partition_path "$DISK" 2)"
@@ -132,12 +148,13 @@ printf 'Hostname:   %s\n' "$HOSTNAME"
 printf 'Locale:     %s\n' "$LOCALE"
 printf 'Keymap:     %s\n' "$KEYMAP"
 printf 'Timezone:   %s\n' "$TIMEZONE"
+printf 'User:       %s\n' "$USERNAME"
 if [ -n "$REPO_SERVER" ]; then
   printf 'Repo:       %s\n' "$REPO_SERVER"
 else
   printf 'Repo:       system pacman configuration\n'
 fi
-printf 'Packages:   basalt-base linux linux-firmware dracut grub\n'
+printf 'Packages:   basalt-base linux linux-firmware dracut grub openssh\n'
 
 if [ "$DRY_RUN" -eq 1 ]; then
   printf 'Mode:       dry-run\n'
@@ -159,6 +176,7 @@ require_cmd mkfs.fat
 require_cmd mkfs.ext4
 require_cmd mount
 require_cmd partprobe
+require_cmd blkid
 require_cmd pacstrap
 require_cmd genfstab
 require_cmd arch-chroot
@@ -173,6 +191,8 @@ run sgdisk -n 3:0:0 -t 3:8300 -c 3:ROOT "$DISK"
 run partprobe "$DISK"
 run mkfs.fat -F32 "$EFI_PART"
 run mkfs.ext4 -F "$ROOT_PART"
+ROOT_UUID="$(blkid -s UUID -o value "$ROOT_PART")"
+[ -n "$ROOT_UUID" ] || fail "could not read UUID for $ROOT_PART"
 run mkdir -p "$TARGET"
 run mount "$ROOT_PART" "$TARGET"
 run mkdir -p "$TARGET/boot"
@@ -184,13 +204,25 @@ printf 'KEYMAP=%s\n' "$KEYMAP" > "$TARGET/etc/vconsole.conf"
 if [ -n "$REPO_SERVER" ]; then
   cp /etc/pacman.conf "$PACMAN_CONF"
   printf '\n[basalt]\nSigLevel = Optional TrustAll\nServer = %s\n' "$REPO_SERVER" >> "$PACMAN_CONF"
-  run pacstrap -K -C "$PACMAN_CONF" "$TARGET" basalt-base linux linux-firmware dracut grub
+  run pacstrap -K -C "$PACMAN_CONF" "$TARGET" basalt-base linux linux-firmware dracut grub openssh
 else
-  run pacstrap -K "$TARGET" basalt-base linux linux-firmware dracut grub
+  run pacstrap -K "$TARGET" basalt-base linux linux-firmware dracut grub openssh
 fi
 
 genfstab -U "$TARGET" >> "$TARGET/etc/fstab"
 printf '%s\n' "$HOSTNAME" > "$TARGET/etc/hostname"
+mkdir -p "$TARGET/etc/systemd/network" "$TARGET/etc/ssh/sshd_config.d"
+cat > "$TARGET/etc/systemd/network/20-wired.network" <<'EOF'
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+EOF
+cat > "$TARGET/etc/ssh/sshd_config.d/10-basalt-install.conf" <<'EOF'
+PasswordAuthentication yes
+PermitRootLogin no
+EOF
 cat > "$TARGET/etc/default/grub" <<'EOF'
 GRUB_DISTRIBUTOR="BasaltOS"
 GRUB_DEFAULT=0
@@ -199,8 +231,37 @@ GRUB_CMDLINE_LINUX_DEFAULT="quiet"
 GRUB_CMDLINE_LINUX=""
 EOF
 run arch-chroot "$TARGET" ln -sf "/usr/share/zoneinfo/$TIMEZONE" /etc/localtime
-run arch-chroot "$TARGET" grub-install --target=i386-pc "$DISK"
+run arch-chroot "$TARGET" useradd -m -G wheel "$USERNAME"
+printf '%s:%s\n' "$USERNAME" "$PASSWORD" | arch-chroot "$TARGET" chpasswd
+run arch-chroot "$TARGET" systemctl enable sshd systemd-networkd
+run mkdir -p "$TARGET/boot/grub"
+printf '(hd0) %s\n' "$DISK" > "$TARGET/boot/grub/device.map"
+run arch-chroot "$TARGET" grub-install --target=i386-pc --recheck "$DISK"
 run arch-chroot "$TARGET" grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=BasaltOS --removable
 run arch-chroot "$TARGET" grub-mkconfig -o /boot/grub/grub.cfg
+if [ ! -f "$TARGET/boot/grub/grub.cfg" ] && [ -f "$TARGET/boot/grub/grub.cfg.new" ]; then
+  run mv "$TARGET/boot/grub/grub.cfg.new" "$TARGET/boot/grub/grub.cfg"
+fi
+[ -f "$TARGET/boot/grub/grub.cfg" ] || fail "grub configuration was not generated at /boot/grub/grub.cfg"
+run arch-chroot "$TARGET" bootctl --esp-path=/boot --no-variables install
+mkdir -p "$TARGET/boot/EFI/BOOT" "$TARGET/boot/loader/entries"
+cp "$TARGET/boot/EFI/systemd/systemd-bootx64.efi" "$TARGET/boot/EFI/BOOT/BOOTX64.EFI"
+cat > "$TARGET/boot/loader/loader.conf" <<'EOF'
+default basalt.conf
+timeout 3
+console-mode max
+editor no
+EOF
+cat > "$TARGET/boot/loader/entries/basalt.conf" <<EOF
+title BasaltOS
+linux /vmlinuz-linux
+initrd /initramfs-linux.img
+options root=UUID=$ROOT_UUID rw
+EOF
+run sync
+printf '+ umount -R %s\n' "$TARGET"
+if [ "$DRY_RUN" -eq 0 ]; then
+  umount -R "$TARGET" || umount -Rl "$TARGET"
+fi
 
 printf 'BasaltOS install complete at %s\n' "$TARGET"

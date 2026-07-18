@@ -12,6 +12,8 @@ grep -q 'EFI:        /dev/nvme0n1p2' /tmp/basalt-installer-nvme.out
 grep -q 'Root:       /dev/nvme0n1p3' /tmp/basalt-installer-nvme.out
 "$INSTALLER" --disk /dev/vda --locale C.UTF-8 --keymap us --timezone UTC --dry-run > /tmp/basalt-installer-locale.out
 grep -q 'Locale:     C.UTF-8' /tmp/basalt-installer-locale.out
+"$INSTALLER" --disk /dev/vda --user basalt-test --password basalt --dry-run > /tmp/basalt-installer-user.out
+grep -q 'User:       basalt-test' /tmp/basalt-installer-user.out
 
 if "$INSTALLER" --disk /dev/vda >/tmp/basalt-installer-starts.out 2>&1; then
   printf 'FAIL: installer allowed destructive path without --yes\n' >&2
