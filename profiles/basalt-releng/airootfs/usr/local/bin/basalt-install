@@ -1,3 +1,163 @@
 #!/usr/bin/env sh
-echo "TODO: launch BasaltOS installer"
+set -eu
 
+DISK=""
+HOSTNAME="basalt"
+TARGET="/mnt"
+REPO_SERVER=""
+DRY_RUN=0
+YES=0
+
+usage() {
+  cat <<'EOF'
+Usage: basalt-install --disk /dev/vda [options]
+
+Options:
+  --disk PATH       Target disk to erase and install to.
+  --hostname NAME   Installed hostname. Default: basalt.
+  --target PATH     Mounted install root. Default: /mnt.
+  --repo URL        Optional pacman repo server, for example file:///tmp/basalt-local-repo.
+  --dry-run         Print the install plan without changing disks.
+  --yes             Execute the install plan after WIPE confirmation.
+  --help            Show this help.
+
+The real install path erases the target disk. It requires --yes and the
+confirmation word WIPE on stdin or BASALT_INSTALL_CONFIRM=WIPE.
+EOF
+}
+
+fail() {
+  printf 'FAIL: %s\n' "$*" >&2
+  exit 1
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
+}
+
+partition_path() {
+  case "$1" in
+    *[0-9]) printf '%sp%s\n' "$1" "$2" ;;
+    *) printf '%s%s\n' "$1" "$2" ;;
+  esac
+}
+
+run() {
+  printf '+ %s\n' "$*"
+  if [ "$DRY_RUN" -eq 0 ]; then
+    "$@"
+  fi
+}
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --disk)
+      [ "$#" -ge 2 ] || fail "--disk requires a value"
+      DISK="$2"
+      shift 2
+      ;;
+    --hostname)
+      [ "$#" -ge 2 ] || fail "--hostname requires a value"
+      HOSTNAME="$2"
+      shift 2
+      ;;
+    --target)
+      [ "$#" -ge 2 ] || fail "--target requires a value"
+      TARGET="$2"
+      shift 2
+      ;;
+    --repo)
+      [ "$#" -ge 2 ] || fail "--repo requires a value"
+      REPO_SERVER="$2"
+      shift 2
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --yes)
+      YES=1
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown argument: $1"
+      ;;
+  esac
+done
+
+[ -n "$DISK" ] || fail "--disk is required"
+[ -n "$HOSTNAME" ] || fail "--hostname cannot be empty"
+[ -n "$TARGET" ] || fail "--target cannot be empty"
+
+EFI_PART="$(partition_path "$DISK" 1)"
+ROOT_PART="$(partition_path "$DISK" 2)"
+PACMAN_CONF="/tmp/basalt-install-pacman.conf"
+
+printf 'BasaltOS install plan\n'
+printf 'Disk:       %s\n' "$DISK"
+printf 'EFI:        %s\n' "$EFI_PART"
+printf 'Root:       %s\n' "$ROOT_PART"
+printf 'Target:     %s\n' "$TARGET"
+printf 'Hostname:   %s\n' "$HOSTNAME"
+if [ -n "$REPO_SERVER" ]; then
+  printf 'Repo:       %s\n' "$REPO_SERVER"
+else
+  printf 'Repo:       system pacman configuration\n'
+fi
+printf 'Packages:   basalt-base linux linux-firmware dracut\n'
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  printf 'Mode:       dry-run\n'
+  exit 0
+fi
+
+[ "$YES" -eq 1 ] || fail "real install requires --yes"
+
+CONFIRM="${BASALT_INSTALL_CONFIRM:-}"
+if [ -z "$CONFIRM" ]; then
+  printf 'Type WIPE to erase %s: ' "$DISK" >&2
+  read -r CONFIRM
+fi
+[ "$CONFIRM" = "WIPE" ] || fail "aborted"
+
+require_cmd sgdisk
+require_cmd wipefs
+require_cmd mkfs.fat
+require_cmd mkfs.ext4
+require_cmd mount
+require_cmd partprobe
+require_cmd pacstrap
+require_cmd genfstab
+require_cmd arch-chroot
+
+printf '+ umount -R %s\n' "$TARGET"
+umount -R "$TARGET" 2>/dev/null || true
+run wipefs -af "$DISK"
+run sgdisk --zap-all "$DISK"
+run sgdisk -n 1:1MiB:+512MiB -t 1:ef00 -c 1:EFI "$DISK"
+run sgdisk -n 2:0:0 -t 2:8300 -c 2:ROOT "$DISK"
+run partprobe "$DISK"
+run mkfs.fat -F32 "$EFI_PART"
+run mkfs.ext4 -F "$ROOT_PART"
+run mkdir -p "$TARGET"
+run mount "$ROOT_PART" "$TARGET"
+run mkdir -p "$TARGET/boot"
+run mount "$EFI_PART" "$TARGET/boot"
+
+if [ -n "$REPO_SERVER" ]; then
+  cp /etc/pacman.conf "$PACMAN_CONF"
+  printf '\n[basalt]\nSigLevel = Optional TrustAll\nServer = %s\n' "$REPO_SERVER" >> "$PACMAN_CONF"
+  run pacstrap -K -C "$PACMAN_CONF" "$TARGET" basalt-base linux linux-firmware dracut
+else
+  run pacstrap -K "$TARGET" basalt-base linux linux-firmware dracut
+fi
+
+genfstab -U "$TARGET" >> "$TARGET/etc/fstab"
+printf '%s\n' "$HOSTNAME" > "$TARGET/etc/hostname"
+run arch-chroot "$TARGET" ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+printf 'BasaltOS install complete at %s\n' "$TARGET"

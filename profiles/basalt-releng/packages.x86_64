@@ -1,2 +1,11 @@
 # Package list for BasaltOS live ISO.
-
+arch-install-scripts
+bash
+dosfstools
+dracut
+gptfdisk
+linux
+linux-firmware
+pacman
+parted
+util-linux
