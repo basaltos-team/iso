@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -eu
+
+{
+  printf 'BASALT_LIVE_BOOT_OK\n'
+  printf 'hostname='
+  cat /etc/hostname 2>/dev/null || printf 'unknown\n'
+  printf 'os='
+  sed -n 's/^PRETTY_NAME=//p' /etc/os-release 2>/dev/null || printf 'unknown\n'
+} >/dev/ttyS0 2>/dev/null || true

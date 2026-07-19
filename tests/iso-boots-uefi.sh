@@ -2,6 +2,10 @@
 set -eu
 
 ISO_PATH="${BASALT_ISO_PATH:-}"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+STATE_DIR="${BASALT_ISO_STATE_DIR:-/tmp/basalt-iso-boot-smoke}"
+TIMEOUT_SECONDS="${BASALT_ISO_BOOT_TIMEOUT:-180}"
 
 [ -n "$ISO_PATH" ] || {
   printf 'iso-boots-uefi: skipped; set BASALT_ISO_PATH=/path/to/basaltos.iso\n'
@@ -9,4 +13,44 @@ ISO_PATH="${BASALT_ISO_PATH:-}"
 }
 
 test -s "$ISO_PATH"
-printf 'iso-boots-uefi: pending VM boot assertion for %s\n' "$ISO_PATH"
+command -v qemu-system-x86_64 >/dev/null 2>&1 || {
+  printf 'iso-boots-uefi: skipped; qemu-system-x86_64 is not available\n'
+  exit 0
+}
+
+mkdir -p "$STATE_DIR"
+SERIAL_LOG="$STATE_DIR/serial.log"
+rm -f "$SERIAL_LOG"
+
+cleanup() {
+  if [ -n "${QEMU_PID:-}" ] && kill -0 "$QEMU_PID" 2>/dev/null; then
+    kill "$QEMU_PID" 2>/dev/null || true
+    wait "$QEMU_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+printf 'iso-boots-uefi: booting %s\n' "$ISO_PATH"
+BASALT_ISO_DISPLAY=none \
+BASALT_ISO_SERIAL_LOG="$SERIAL_LOG" \
+BASALT_ISO_STATE_DIR="$STATE_DIR" \
+  "$REPO_ROOT/scripts/run-uefi" &
+QEMU_PID="$!"
+
+deadline=$(($(date +%s) + TIMEOUT_SECONDS))
+while [ "$(date +%s)" -lt "$deadline" ]; do
+  if [ -f "$SERIAL_LOG" ] && grep -q 'BASALT_LIVE_BOOT_OK' "$SERIAL_LOG"; then
+    printf 'iso-boots-uefi: ok\n'
+    exit 0
+  fi
+  if ! kill -0 "$QEMU_PID" 2>/dev/null; then
+    printf 'FAIL: ISO VM exited before boot marker appeared\n' >&2
+    [ -f "$SERIAL_LOG" ] && tail -n 80 "$SERIAL_LOG" >&2
+    exit 1
+  fi
+  sleep 2
+done
+
+printf 'FAIL: timed out waiting for BASALT_LIVE_BOOT_OK in %s\n' "$SERIAL_LOG" >&2
+[ -f "$SERIAL_LOG" ] && tail -n 120 "$SERIAL_LOG" >&2
+exit 1

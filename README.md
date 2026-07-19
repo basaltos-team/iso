@@ -2,6 +2,8 @@
 
 archiso, installer, and recovery environment repository.
 
+The live ISO profile currently uses `mkinitcpio-archiso` to boot the live environment. Installed BasaltOS systems still use dracut; that is controlled by the installer and boot policy, not by the live ISO initramfs.
+
 ## Owns
 
 - archiso profile.
@@ -41,6 +43,7 @@ find scripts -type f ! -name '.gitkeep' -exec sh -n {} +
 find tests -type f -name '*.sh' -exec sh -n {} +
 ./tests/installer-starts.sh
 ./tests/iso-build-artifact.sh
+./tests/iso-boots-uefi.sh
 test -f profiles/basalt-releng/packages.x86_64
 test -f profiles/basalt-releng/pacman.conf
 test -f profiles/basalt-releng/profiledef.sh
@@ -57,4 +60,10 @@ Run the artifact smoke against a real build:
 
 ```sh
 BASALT_ISO_BUILD_SMOKE=1 ./tests/iso-build-artifact.sh
+```
+
+Boot a generated ISO under UEFI and wait for the live serial marker:
+
+```sh
+BASALT_ISO_PATH=/path/to/basaltos.iso ./tests/iso-boots-uefi.sh
 ```

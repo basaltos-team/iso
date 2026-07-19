@@ -1,0 +1,10 @@
+[Unit]
+Description=BasaltOS live boot smoke marker
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/basalt-live-boot-smoke
+
+[Install]
+WantedBy=multi-user.target
