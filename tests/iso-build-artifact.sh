@@ -4,10 +4,12 @@ set -eu
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 OUT_DIR="${BASALT_ISO_OUT:-$REPO_ROOT/out}"
+DRY_RUN_OUTPUT="$(mktemp -t basalt-iso-build-dry-run.XXXXXX)"
+trap 'rm -f "$DRY_RUN_OUTPUT"' EXIT
 
-"$REPO_ROOT/scripts/build-iso" --dry-run >/tmp/basalt-iso-build-dry-run.out
-grep -q 'BasaltOS ISO build plan' /tmp/basalt-iso-build-dry-run.out
-grep -q 'Mode:    dry-run' /tmp/basalt-iso-build-dry-run.out
+"$REPO_ROOT/scripts/build-iso" --dry-run >"$DRY_RUN_OUTPUT"
+grep -q 'BasaltOS ISO build plan' "$DRY_RUN_OUTPUT"
+grep -q 'Mode:    dry-run' "$DRY_RUN_OUTPUT"
 
 if [ "${BASALT_ISO_BUILD_SMOKE:-0}" != "1" ]; then
   printf 'iso-build-artifact: skipped real build; set BASALT_ISO_BUILD_SMOKE=1 on an Arch builder\n'
