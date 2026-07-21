@@ -74,3 +74,19 @@ The UEFI boot smoke waits for both the live boot marker and the installer marker
 BASALT_LIVE_BOOT_OK
 BASALT_INSTALLER_SMOKE_OK
 ```
+
+Attach a writable qcow2 target disk and require installer disk-planning markers:
+
+```sh
+BASALT_ISO_PATH=/path/to/basaltos.iso \
+BASALT_ISO_TARGET_DISK=/tmp/basalt-install-target.qcow2 \
+BASALT_ISO_REQUIRE_TARGET_DISK=1 \
+  ./tests/iso-boots-uefi.sh
+```
+
+Additional target-disk markers:
+
+```text
+BASALT_TARGET_DISK_OK
+BASALT_TARGET_INSTALL_PLAN_OK
+```

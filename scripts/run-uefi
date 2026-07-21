@@ -7,6 +7,7 @@ CPUS="${BASALT_ISO_CPUS:-4}"
 STATE_DIR="${BASALT_ISO_STATE_DIR:-/tmp/basalt-iso-vm}"
 DISPLAY_MODE="${BASALT_ISO_DISPLAY:-gtk}"
 SERIAL_LOG="${BASALT_ISO_SERIAL_LOG:-}"
+EXTRA_DISK_PATH="${BASALT_ISO_EXTRA_DISK:-}"
 
 find_ovmf_file() {
   if [ -n "${1:-}" ] && [ -f "$1" ]; then
@@ -65,6 +66,14 @@ set -- qemu-system-x86_64 \
   -drive "if=pflash,format=raw,file=$OVMF_VARS" \
   -cdrom "$ISO_PATH" \
   -boot d
+
+if [ -n "$EXTRA_DISK_PATH" ]; then
+  [ -f "$EXTRA_DISK_PATH" ] || {
+    printf 'FAIL: extra disk not found: %s\n' "$EXTRA_DISK_PATH" >&2
+    exit 1
+  }
+  set -- "$@" -drive "file=$EXTRA_DISK_PATH,format=qcow2,if=virtio"
+fi
 
 case "$DISPLAY_MODE" in
   gtk)

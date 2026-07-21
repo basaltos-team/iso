@@ -14,4 +14,12 @@ set -eu
   else
     printf 'BASALT_INSTALLER_SMOKE_FAIL\n'
   fi
+  if [ -b /dev/vda ]; then
+    printf 'BASALT_TARGET_DISK_OK\n'
+    if basalt-install --disk /dev/vda --dry-run 2>/dev/null | grep -q 'Root:       /dev/vda3'; then
+      printf 'BASALT_TARGET_INSTALL_PLAN_OK\n'
+    else
+      printf 'BASALT_TARGET_INSTALL_PLAN_FAIL\n'
+    fi
+  fi
 } >/dev/ttyS0 2>/dev/null || true
