@@ -90,3 +90,23 @@ Additional target-disk markers:
 BASALT_TARGET_DISK_OK
 BASALT_TARGET_INSTALL_PLAN_OK
 ```
+
+Build an ISO with an embedded local Basalt pacman repo payload and require the live image to see it:
+
+```sh
+BASALT_ISO_EMBED_LOCAL_REPO=1 \
+BASALT_ISO_REQUIRE_REPO_PAYLOAD=1 \
+  ../tests/scripts/run-arch-vm-iso-boot
+```
+
+The repo payload is copied into the live image at:
+
+```text
+/opt/basalt/repo
+```
+
+Additional repo-payload marker:
+
+```text
+BASALT_REPO_PAYLOAD_OK
+```

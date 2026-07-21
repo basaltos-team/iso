@@ -22,4 +22,9 @@ set -eu
       printf 'BASALT_TARGET_INSTALL_PLAN_FAIL\n'
     fi
   fi
+  if [ -f /opt/basalt/repo/basalt.db ] \
+    && ls /opt/basalt/repo/basalt-base-*.pkg.tar* >/dev/null 2>&1 \
+    && ls /opt/basalt/repo/basalt-*.pkg.tar* >/dev/null 2>&1; then
+    printf 'BASALT_REPO_PAYLOAD_OK\n'
+  fi
 } >/dev/ttyS0 2>/dev/null || true

@@ -8,6 +8,7 @@ STATE_DIR="${BASALT_ISO_STATE_DIR:-/tmp/basalt-iso-boot-smoke}"
 TIMEOUT_SECONDS="${BASALT_ISO_BOOT_TIMEOUT:-180}"
 TARGET_DISK="${BASALT_ISO_TARGET_DISK:-}"
 REQUIRE_TARGET_DISK="${BASALT_ISO_REQUIRE_TARGET_DISK:-0}"
+REQUIRE_REPO_PAYLOAD="${BASALT_ISO_REQUIRE_REPO_PAYLOAD:-0}"
 
 [ -n "$ISO_PATH" ] || {
   printf 'iso-boots-uefi: skipped; set BASALT_ISO_PATH=/path/to/basaltos.iso\n'
@@ -55,6 +56,11 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
     if [ "$REQUIRE_TARGET_DISK" = "1" ] \
       && { ! grep -q 'BASALT_TARGET_DISK_OK' "$SERIAL_LOG" \
         || ! grep -q 'BASALT_TARGET_INSTALL_PLAN_OK' "$SERIAL_LOG"; }; then
+      sleep 2
+      continue
+    fi
+    if [ "$REQUIRE_REPO_PAYLOAD" = "1" ] \
+      && ! grep -q 'BASALT_REPO_PAYLOAD_OK' "$SERIAL_LOG"; then
       sleep 2
       continue
     fi
