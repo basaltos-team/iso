@@ -67,3 +67,10 @@ Boot a generated ISO under UEFI and wait for the live serial marker:
 ```sh
 BASALT_ISO_PATH=/path/to/basaltos.iso ./tests/iso-boots-uefi.sh
 ```
+
+The UEFI boot smoke waits for both the live boot marker and the installer marker:
+
+```text
+BASALT_LIVE_BOOT_OK
+BASALT_INSTALLER_SMOKE_OK
+```

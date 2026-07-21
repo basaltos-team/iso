@@ -7,6 +7,7 @@ INSTALLER="$SCRIPT_DIR/../profiles/basalt-releng/airootfs/usr/local/bin/basalt-i
 "$INSTALLER" --help >/dev/null
 "$INSTALLER" --disk /dev/vda --hostname basalt-test --repo file:///tmp/basalt-local-repo --dry-run > /tmp/basalt-installer-dry-run.out
 grep -q 'BasaltOS install plan' /tmp/basalt-installer-dry-run.out
+grep -q 'Packages:   basalt-base linux-zen linux-firmware dracut grub openssh' /tmp/basalt-installer-dry-run.out
 "$INSTALLER" --disk /dev/nvme0n1 --dry-run > /tmp/basalt-installer-nvme.out
 grep -q 'EFI:        /dev/nvme0n1p2' /tmp/basalt-installer-nvme.out
 grep -q 'Root:       /dev/nvme0n1p3' /tmp/basalt-installer-nvme.out

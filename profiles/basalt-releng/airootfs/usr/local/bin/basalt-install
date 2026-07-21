@@ -154,7 +154,7 @@ if [ -n "$REPO_SERVER" ]; then
 else
   printf 'Repo:       system pacman configuration\n'
 fi
-printf 'Packages:   basalt-base linux linux-firmware dracut grub openssh\n'
+printf 'Packages:   basalt-base linux-zen linux-firmware dracut grub openssh\n'
 
 if [ "$DRY_RUN" -eq 1 ]; then
   printf 'Mode:       dry-run\n'
@@ -204,9 +204,9 @@ printf 'KEYMAP=%s\n' "$KEYMAP" > "$TARGET/etc/vconsole.conf"
 if [ -n "$REPO_SERVER" ]; then
   cp /etc/pacman.conf "$PACMAN_CONF"
   printf '\n[basalt]\nSigLevel = Optional TrustAll\nServer = %s\n' "$REPO_SERVER" >> "$PACMAN_CONF"
-  run pacstrap -K -C "$PACMAN_CONF" "$TARGET" basalt-base linux linux-firmware dracut grub openssh
+  run pacstrap -K -C "$PACMAN_CONF" "$TARGET" basalt-base linux-zen linux-firmware dracut grub openssh
 else
-  run pacstrap -K "$TARGET" basalt-base linux linux-firmware dracut grub openssh
+  run pacstrap -K "$TARGET" basalt-base linux-zen linux-firmware dracut grub openssh
 fi
 
 genfstab -U "$TARGET" >> "$TARGET/etc/fstab"
@@ -254,8 +254,8 @@ editor no
 EOF
 cat > "$TARGET/boot/loader/entries/basalt.conf" <<EOF
 title BasaltOS
-linux /vmlinuz-linux
-initrd /initramfs-linux.img
+linux /vmlinuz-linux-zen
+initrd /initramfs-linux-zen.img
 options root=UUID=$ROOT_UUID rw
 EOF
 run sync

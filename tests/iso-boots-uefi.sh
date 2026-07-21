@@ -39,7 +39,9 @@ QEMU_PID="$!"
 
 deadline=$(($(date +%s) + TIMEOUT_SECONDS))
 while [ "$(date +%s)" -lt "$deadline" ]; do
-  if [ -f "$SERIAL_LOG" ] && grep -q 'BASALT_LIVE_BOOT_OK' "$SERIAL_LOG"; then
+  if [ -f "$SERIAL_LOG" ] \
+    && grep -q 'BASALT_LIVE_BOOT_OK' "$SERIAL_LOG" \
+    && grep -q 'BASALT_INSTALLER_SMOKE_OK' "$SERIAL_LOG"; then
     printf 'iso-boots-uefi: ok\n'
     exit 0
   fi
@@ -51,6 +53,6 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
   sleep 2
 done
 
-printf 'FAIL: timed out waiting for BASALT_LIVE_BOOT_OK in %s\n' "$SERIAL_LOG" >&2
+printf 'FAIL: timed out waiting for live and installer smoke markers in %s\n' "$SERIAL_LOG" >&2
 [ -f "$SERIAL_LOG" ] && tail -n 120 "$SERIAL_LOG" >&2
 exit 1

@@ -7,4 +7,11 @@ set -eu
   cat /etc/hostname 2>/dev/null || printf 'unknown\n'
   printf 'os='
   sed -n 's/^PRETTY_NAME=//p' /etc/os-release 2>/dev/null || printf 'unknown\n'
+  if command -v basalt-install >/dev/null 2>&1 \
+    && basalt-install --help >/dev/null 2>&1 \
+    && basalt-install --disk /dev/vda --dry-run 2>/dev/null | grep -q 'Packages:   basalt-base linux-zen linux-firmware dracut grub openssh'; then
+    printf 'BASALT_INSTALLER_SMOKE_OK\n'
+  else
+    printf 'BASALT_INSTALLER_SMOKE_FAIL\n'
+  fi
 } >/dev/ttyS0 2>/dev/null || true
